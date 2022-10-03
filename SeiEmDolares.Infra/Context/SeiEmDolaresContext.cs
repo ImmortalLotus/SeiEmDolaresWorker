@@ -19,8 +19,10 @@ namespace SeiEmDolares.Infra.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfiguration(new MapeamentoProtocoloSeiEmDolares());
+            modelBuilder.ApplyConfiguration(new MapeamentoQtdPaginas());
         }
         public DbSet<ProtocoloSeiEmDolares> ProtocoloEmDolares { get; set; }
+        public DbSet<QtdPaginas> QtdPaginas { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

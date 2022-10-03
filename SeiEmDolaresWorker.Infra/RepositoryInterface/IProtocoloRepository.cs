@@ -11,6 +11,6 @@ namespace Sei.Infra.RepositoryInterface
 {
     public interface IProtocoloRepository
     {
-        List<Protocolo> GetListaDeProcotolosDoSei(IQueryable<ProtocoloSeiEmDolares> listaDeProtocolosDoSeiEmDolares);
+        List<long> GetListaDeProcotolosDoSei(IQueryable<ProtocoloSeiEmDolares> listaDeProtocolosDoSeiEmDolares);
     }
 }

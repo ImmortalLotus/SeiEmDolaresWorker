@@ -17,10 +17,10 @@ namespace SeiEmDolares.Infra.Repository
         {
             _stringConnection = configuration.GetConnectionString("SeiDatabase");
         }
-        public IQueryable<ProtocoloSeiEmDolares> BuscarCemProtocolos()
+        public IQueryable<ProtocoloSeiEmDolares> BuscarMilProtocolos()
         {
             using var context= new SeiEmDolaresContext(_stringConnection);
-            return context.ProtocoloEmDolares.Where(x=>x.FoiImpresso==0).OrderBy(p =>p.ProtocoloId).Take(100);
+            return context.ProtocoloEmDolares.Where(x=>x.FoiImpresso==0).OrderBy(p =>p.ProtocoloId).Take(1000);
         }
     }
 }
