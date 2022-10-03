@@ -18,14 +18,14 @@ namespace Sei.Infra.Repository
         {
             _stringConnection = configuration.GetConnectionString("SeiDatabase");
         }
-        public List<Protocolo> GetListaDeProcotolosDoSei(IQueryable<ProtocoloSeiEmDolares> listaDeProtocolosDoSeiEmDolares)
+        public List<long> GetListaDeProcotolosDoSei(IQueryable<ProtocoloSeiEmDolares> listaDeProtocolosDoSeiEmDolares)
         {
             using var contexto=new SeiContext(_stringConnection);
             return
                                 (from sei in contexto.Protocolo
                                  join seiEmDolares in listaDeProtocolosDoSeiEmDolares
                                  on sei.ProtocoloId equals seiEmDolares.ProtocoloId
-                                 select sei).ToList();
+                                 select sei.ProtocoloId).ToList();
         }
     }
 }
