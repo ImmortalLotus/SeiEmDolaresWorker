@@ -10,5 +10,6 @@ namespace SeiEmDolares.Domain.Entities
     {
         public long ProtocoloId { get; set; }
         public int? FoiImpresso { get; set; }
+        public int? Quantidade { get; set; }
     }
 }
