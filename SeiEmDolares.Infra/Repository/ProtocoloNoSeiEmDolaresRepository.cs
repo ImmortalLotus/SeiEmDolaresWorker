@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SeiEmDolares.Domain.Entities;
 using SeiEmDolares.Infra.Context;
 using SeiEmDolares.Infra.RepositoryInterface;
@@ -15,12 +16,14 @@ namespace SeiEmDolares.Infra.Repository
         private readonly string _stringConnection;
         public ProtocoloNoSeiEmDolaresRepository(IConfiguration configuration)
         {
-            _stringConnection = configuration.GetConnectionString("SeiDatabase");
+            _stringConnection = configuration.GetConnectionString("SeiEmDolaresDatabase");
         }
-        public IQueryable<ProtocoloSeiEmDolares> BuscarMilProtocolos()
+        public async Task<List<long>> BuscarMilProtocolos()
         {
-            using var context= new SeiEmDolaresContext(_stringConnection);
-            return context.ProtocoloEmDolares.Where(x=>x.FoiImpresso==0).OrderBy(p =>p.ProtocoloId).Take(1000);
+            using (var context = new SeiEmDolaresContext(_stringConnection))
+            {
+                return await context.ProtocoloEmDolares.Where(x => x.FoiImpresso == 0).OrderBy(p => p.ProtocoloId).Select(x => x.ProtocoloId).Take(1000).ToListAsync();
+            }
         }
     }
 }

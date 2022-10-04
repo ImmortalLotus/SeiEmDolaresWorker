@@ -9,6 +9,6 @@ namespace SeiEmDolares.Infra.RepositoryInterface
 {
     public interface IProtocoloNoSeiEmDolaresRepository
     {
-        IQueryable<ProtocoloSeiEmDolares> BuscarMilProtocolos();
+        public Task<List<long>> BuscarMilProtocolos();
     }
 }
