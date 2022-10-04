@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Sei.Domain.Entities;
 using Sei.Infra.RepositoryInterface;
 using SeiEmDolares.Domain.Entities;
@@ -18,14 +19,12 @@ namespace Sei.Infra.Repository
         {
             _stringConnection = configuration.GetConnectionString("SeiDatabase");
         }
-        public List<long> GetListaDeProcotolosDoSei(IQueryable<ProtocoloSeiEmDolares> listaDeProtocolosDoSeiEmDolares)
+        public async Task<List<long>> GetListaDeProcotolosDoSeiAsync(List<long> listaDeProtocolosDoSeiEmDolares)
         {
-            using var contexto=new SeiContext(_stringConnection);
-            return
-                                (from sei in contexto.Protocolo
-                                 join seiEmDolares in listaDeProtocolosDoSeiEmDolares
-                                 on sei.ProtocoloId equals seiEmDolares.ProtocoloId
-                                 select sei.ProtocoloId).ToList();
+            using (var contexto = new SeiContext(_stringConnection))
+            {
+                return await contexto.Protocolo.Where(x => listaDeProtocolosDoSeiEmDolares.Contains(x.ProtocoloId)).Select(x => x.ProtocoloId).ToListAsync();
+            }
         }
     }
 }

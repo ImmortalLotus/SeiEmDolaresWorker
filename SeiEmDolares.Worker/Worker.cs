@@ -1,10 +1,19 @@
-﻿using Sei.Domain.Entities;
+﻿using iText.Commons.Actions.Contexts;
+using iText.Html2pdf;
+using iText.Kernel.Geom;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Renderer;
+using Microsoft.EntityFrameworkCore;
+using Sei.Domain.Entities;
 using Sei.Infra.RepositoryInterface;
 using SeiEmDolares.Domain.Entities;
 using SeiEmDolares.Infra.Context;
 using SeiEmDolares.Infra.RepositoryInterface;
-using IronPdf;
+using SeiEmDolares.Worker.PdfHelper;
 using System.Text;
+using static SeiEmDolares.Worker.PdfHelper.ConverterProperties;
+using ConverterProperties = iText.Html2pdf.ConverterProperties;
 
 namespace SeiEmDolares.Worker
 {
@@ -17,7 +26,7 @@ namespace SeiEmDolares.Worker
         private readonly string _seiEmDolaresString;
 
 
-        public Worker(ILogger<Worker> logger, 
+        public Worker(ILogger<Worker> logger,
             IProtocoloNoSeiEmDolaresRepository protocoloNoSeiRepository,
             IProtocoloRepository protocoloRepository,
             IConfiguration configuration)
@@ -38,43 +47,51 @@ namespace SeiEmDolares.Worker
                 /*
                     seu código aqui
                  */
-                var listaDeProtocolosDoSeiEmDolares = _protocoloNoSeiRepository.BuscarMilProtocolos();
-                using var contexto = new SeiContext(_seiString);
-                using var context = new SeiEmDolaresContext(_seiEmDolaresString);
-                var listaDeProcotolosDoSei = _protocoloRepository.GetListaDeProcotolosDoSei(listaDeProtocolosDoSeiEmDolares);
-                var renderer = new ChromePdfRenderer()
-                {
-                    RenderingOptions = new ChromePdfRenderOptions
-                    {
-                        MarginBottom = 15,
-                        MarginLeft = 4,
-                        MarginRight = 4,
-                        MarginTop = 15,
-                        PaperOrientation = IronPdf.Rendering.PdfPaperOrientation.Portrait,
-                        PaperSize = IronPdf.Rendering.PdfPaperSize.A4
-                    }
-                };
+                var listaDeProtocolosDoSeiEmDolares = await _protocoloNoSeiRepository.BuscarMilProtocolos();
+                var listaDeProcotolosDoSei = await _protocoloRepository.GetListaDeProcotolosDoSeiAsync(listaDeProtocolosDoSeiEmDolares);
                 foreach (var item in listaDeProcotolosDoSei)
                 {
-                    var documento = contexto.ConteudoDoDocumento.Where(x => x.DocumentoId == item).First();
+                    ConteudoDoDocumento? documento = null;
+                    using (var contexto = new SeiContext(_seiString)) {
+                        documento = await contexto.ConteudoDoDocumento.Where(x => x.DocumentoId == item).FirstOrDefaultAsync();
+                    }
+                    if (documento is null)
+                        continue;
                     StringBuilder mtStr = new StringBuilder(documento.Conteudo);
                     mtStr.Append("<div style=\"margin:400px;\"></div>");
-                    var html=mtStr.ToString();
-                    var pdf = await renderer.RenderHtmlAsPdfAsync(html);
-                    var protocolo = context.ProtocoloEmDolares.Where(x=>x.ProtocoloId==item).FirstOrDefault();
-                    if(protocolo is not null)
+                    int QuantidadeDePaginas;
+                    var html = mtStr.ToString();
+                    PdfWriter writer = new PdfWriter("banana.html");
+                    PdfDocument document = new PdfDocument(writer);
+                    ConverterProperties converter = new SeiEmDolares.Worker.PdfHelper.ConverterProperties();
+                    Document document2o = HtmlConverter.ConvertToDocument(html, document, converter);
+                    document2o.SetProperty(135, new MetaInfoContainer(ResolveMetaInfo((PdfHelper.ConverterProperties)converter)));
+                    QuantidadeDePaginas =document.GetNumberOfPages();
+                    document.Close();
+                    using (var context = new SeiEmDolaresContext(_seiEmDolaresString))
                     {
-                        protocolo.FoiImpresso = 1;
-                        context.Update(protocolo);
-                        await context.SaveChangesAsync();
-                        context.ChangeTracker.Clear();
+                        var protocolo = context.ProtocoloEmDolares.Where(x => x.ProtocoloId == item).FirstOrDefault();
+                        if (protocolo is not null)
+                        {
+                            protocolo.FoiImpresso = 1;
+                            protocolo.Quantidade = QuantidadeDePaginas;
+                            context.Update(protocolo);
+                            await context.SaveChangesAsync();
+                            context.ChangeTracker.Clear();
+                        }
                     }
-                    QtdPaginas qtdPaginas = new(pdf.PageCount,item);
-                    await context.AddAsync(qtdPaginas);
-                    await context.SaveChangesAsync();
                 }
                 await Task.Delay(1000, stoppingToken);
             }
+        }
+        public IMetaInfo ResolveMetaInfo(SeiEmDolares.Worker.PdfHelper.ConverterProperties converterProperties)
+        {
+            if (converterProperties != null)
+            {
+                return converterProperties.GetEventMetaInfo();
+            }
+
+            return new HtmlMetaInfo();
         }
     }
 }

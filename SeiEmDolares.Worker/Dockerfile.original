@@ -6,17 +6,13 @@ WORKDIR /app
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
 COPY ["SeiEmDolares.Worker/SeiEmDolares.Worker.csproj", "SeiEmDolares.Worker/"]
-COPY ["SeiEmDolaresWorker.Infra/Sei.Infra.csproj", "SeiEmDolaresWorker.Infra/"]
-COPY ["SeiEmDolares.Domain/SeiEmDolares.Domain.csproj", "SeiEmDolares.Domain/"]
-COPY ["Sei.Domain/Sei.Domain.csproj", "Sei.Domain/"]
-COPY ["SeiEmDolares.Infra/SeiEmDolares.Infra.csproj", "SeiEmDolares.Infra/"]
 RUN dotnet restore "SeiEmDolares.Worker/SeiEmDolares.Worker.csproj"
 COPY . .
 WORKDIR "/src/SeiEmDolares.Worker"
 RUN dotnet build "SeiEmDolares.Worker.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "SeiEmDolares.Worker.csproj" -c Release -o /app/publish
+RUN dotnet publish "SeiEmDolares.Worker.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

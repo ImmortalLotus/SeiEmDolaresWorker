@@ -16,12 +16,18 @@ namespace SeiEmDolares.Infra.Mappings
             builder
                 .ToTable("ProtocoloSeiEmDolares");
             builder
+                .HasKey(x => x.ProtocoloId);
+
+            builder
                 .Property(x => x.ProtocoloId)
                 .HasColumnName("id_protocolo");
 
             builder
                .Property(x => x.FoiImpresso)
                .HasColumnName("foi_impresso");
+            builder
+                .Property(x => x.Quantidade)
+                .HasColumnName("quantidade");
         }
     }
 }
