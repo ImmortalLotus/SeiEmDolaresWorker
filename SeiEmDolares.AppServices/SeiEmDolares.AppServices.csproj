@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="itext7" Version="7.2.3" />
+    <PackageReference Include="itext7.pdfhtml" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SeiEmDolares.Infra\SeiEmDolares.Infra.csproj" />
+    <ProjectReference Include="..\SeiEmDolaresWorker.Infra\Sei.Infra.csproj" />
+  </ItemGroup>
+
+</Project>

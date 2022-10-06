@@ -1,24 +1,42 @@
-#See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
+FROM registry.okd.local/dotnet/sdk:6.0
 
-FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base
+ENV DOTNET_NUGET_SOURCES=https://nuget.okd.local/repository/api.nuget-group/index.json
+ENV DOTNET_RESTORE_SOURCES="${DOTNET_NUGET_SOURCES}"
+
+RUN apt-get update \
+    && apt-get install -y \
+        curl \
+        libxrender1 \
+        libjpeg62-turbo \
+        fontconfig \
+        libxtst6 \
+        xfonts-75dpi \
+        xfonts-base \
+        xz-utils \
+        libgdiplus
+
+ENV PROJECT_SOLUTION_PATH="SeiEmDolares.Worker"
+
+# ADICIONADO AUTORIDADE CERTIFICADORA PARA ALPINE, DEBIAN, UBUNTU E DISTRIBUIES DERIVADAS
+RUN curl -fsSL https://gitlab.setic.ro.gov.br/publico/ca-trust/-/raw/master/openshift_ca.crt -o /usr/local/share/ca-certificates/openshift_ca.crt
+RUN curl -fsSL https://gitlab.setic.ro.gov.br/publico/ca-trust/-/raw/master/portainer_ca.crt -o /usr/local/share/ca-certificates/portainer_ca.crt
+RUN update-ca-certificates
+
+# COPY CSPROJ AND RESTORE AS DISTINCT LAYERS
+COPY ./ /source
+
+# SETA O DIRETORIO BASE PARA DOTNET RESTORE E PUBLISH
+WORKDIR /source/"${PROJECT_SOLUTION_PATH}"
+
+# RESTAURAO EXPLCITA PARA PACOTES NUGET
+RUN dotnet restore --disable-parallel --source "${DOTNET_NUGET_SOURCES}"
+
+# COMPILA O CODIGO PARA IMPLANTAO EM UM SISTEMA DE HOSPEDAGEM
+RUN dotnet publish --no-restore -c release -o /app
+
+# SETA O DIRETORIO BASE PARA ENTRYPOINT
 WORKDIR /app
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-WORKDIR /src
-COPY ["SeiEmDolares.Worker/SeiEmDolares.Worker.csproj", "SeiEmDolares.Worker/"]
-COPY ["SeiEmDolaresWorker.Infra/Sei.Infra.csproj", "SeiEmDolaresWorker.Infra/"]
-COPY ["SeiEmDolares.Domain/SeiEmDolares.Domain.csproj", "SeiEmDolares.Domain/"]
-COPY ["Sei.Domain/Sei.Domain.csproj", "Sei.Domain/"]
-COPY ["SeiEmDolares.Infra/SeiEmDolares.Infra.csproj", "SeiEmDolares.Infra/"]
-RUN dotnet restore "SeiEmDolares.Worker/SeiEmDolares.Worker.csproj"
-COPY . .
-WORKDIR "/src/SeiEmDolares.Worker"
-RUN dotnet build "SeiEmDolares.Worker.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "SeiEmDolares.Worker.csproj" -c Release -o /app/publish
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "SeiEmDolares.Worker.dll"]
+EXPOSE 8080 443
+ENTRYPOINT dotnet "${PROJECT_SOLUTION_PATH}".dll

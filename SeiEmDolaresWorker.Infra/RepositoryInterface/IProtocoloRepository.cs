@@ -11,6 +11,7 @@ namespace Sei.Infra.RepositoryInterface
 {
     public interface IProtocoloRepository
     {
+        Task<ConteudoDoDocumento?> BuscarConteudoDoDocumento(long item, ConteudoDoDocumento? documento);
         public Task<List<long>> GetListaDeProcotolosDoSeiAsync(List<long> listaDeProtocolosDoSeiEmDolares);
     }
 }

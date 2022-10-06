@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SeiEmDolares.AppServices\SeiEmDolares.AppServices.csproj" />
     <ProjectReference Include="..\SeiEmDolares.Infra\SeiEmDolares.Infra.csproj" />
     <ProjectReference Include="..\SeiEmDolaresWorker.Infra\Sei.Infra.csproj" />
   </ItemGroup>

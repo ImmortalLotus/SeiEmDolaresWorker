@@ -7,12 +7,11 @@ using iText.Layout.Renderer;
 using Microsoft.EntityFrameworkCore;
 using Sei.Domain.Entities;
 using Sei.Infra.RepositoryInterface;
+using SeiEmDolares.AppServices.Interfaces;
 using SeiEmDolares.Domain.Entities;
 using SeiEmDolares.Infra.Context;
 using SeiEmDolares.Infra.RepositoryInterface;
-using SeiEmDolares.Worker.PdfHelper;
 using System.Text;
-using static SeiEmDolares.Worker.PdfHelper.ConverterProperties;
 using ConverterProperties = iText.Html2pdf.ConverterProperties;
 
 namespace SeiEmDolares.Worker
@@ -20,78 +19,57 @@ namespace SeiEmDolares.Worker
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
-        private readonly IProtocoloNoSeiEmDolaresRepository _protocoloNoSeiRepository;
-        private readonly IProtocoloRepository _protocoloRepository;
-        private readonly string _seiString;
-        private readonly string _seiEmDolaresString;
-
+        private readonly IProtocoloServices _protocoloServices;
+        private readonly IImpressaoServices _impressaoServices;
 
         public Worker(ILogger<Worker> logger,
-            IProtocoloNoSeiEmDolaresRepository protocoloNoSeiRepository,
-            IProtocoloRepository protocoloRepository,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IProtocoloServices protocoloServices, IImpressaoServices impressaoServices)
         {
             _logger = logger;
-            _protocoloNoSeiRepository = protocoloNoSeiRepository;
-            this._protocoloRepository = protocoloRepository;
-            _seiString = configuration.GetConnectionString("SeiDatabase");
-            _seiEmDolaresString = configuration.GetConnectionString("SeiEmDolaresDatabase");
+            this._protocoloServices = protocoloServices;
+            this._impressaoServices = impressaoServices;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                _logger.LogInformation("Worker rodando agora: {time}", DateTimeOffset.Now);
 
                 /*
                     seu código aqui
                  */
-                var listaDeProtocolosDoSeiEmDolares = await _protocoloNoSeiRepository.BuscarMilProtocolos();
-                var listaDeProcotolosDoSei = await _protocoloRepository.GetListaDeProcotolosDoSeiAsync(listaDeProtocolosDoSeiEmDolares);
+                var listaDeProtocolosDoSeiEmDolares =await _protocoloServices.BuscarListaDeProtocolosNoSeiEmDolares();
+                var listaDeProcotolosDoSei = await _protocoloServices.BuscarListaDeProtocolosNoSei(listaDeProtocolosDoSeiEmDolares);
                 foreach (var item in listaDeProcotolosDoSei)
                 {
                     ConteudoDoDocumento? documento = null;
-                    using (var contexto = new SeiContext(_seiString)) {
-                        documento = await contexto.ConteudoDoDocumento.Where(x => x.DocumentoId == item).FirstOrDefaultAsync();
-                    }
-                    if (documento is null)
+                    documento = await _protocoloServices.BuscarDocumento(item, documento);
+                    if (documento is null || documento.Conteudo is null)
+                    {
+                        await _protocoloServices.AtualizarDocumentoEmBranco(item);
                         continue;
-                    StringBuilder mtStr = new StringBuilder(documento.Conteudo);
-                    mtStr.Append("<div style=\"margin:400px;\"></div>");
+                    }
+                    StringBuilder mtStr = _impressaoServices.AdicionandoHeaderEFooter(documento);
                     int QuantidadeDePaginas;
                     var html = mtStr.ToString();
-                    PdfWriter writer = new PdfWriter("banana.html");
-                    PdfDocument document = new PdfDocument(writer);
-                    ConverterProperties converter = new SeiEmDolares.Worker.PdfHelper.ConverterProperties();
-                    Document document2o = HtmlConverter.ConvertToDocument(html, document, converter);
-                    document2o.SetProperty(135, new MetaInfoContainer(ResolveMetaInfo((PdfHelper.ConverterProperties)converter)));
-                    QuantidadeDePaginas =document.GetNumberOfPages();
-                    document.Close();
-                    using (var context = new SeiEmDolaresContext(_seiEmDolaresString))
+                    try
                     {
-                        var protocolo = context.ProtocoloEmDolares.Where(x => x.ProtocoloId == item).FirstOrDefault();
-                        if (protocolo is not null)
-                        {
-                            protocolo.FoiImpresso = 1;
-                            protocolo.Quantidade = QuantidadeDePaginas;
-                            context.Update(protocolo);
-                            await context.SaveChangesAsync();
-                            context.ChangeTracker.Clear();
-                        }
+                        QuantidadeDePaginas=_impressaoServices.GerarPdf(html);
                     }
-                }
-                await Task.Delay(1000, stoppingToken);
-            }
-        }
-        public IMetaInfo ResolveMetaInfo(SeiEmDolares.Worker.PdfHelper.ConverterProperties converterProperties)
-        {
-            if (converterProperties != null)
-            {
-                return converterProperties.GetEventMetaInfo();
-            }
+                    catch (Exception ex)
+                    {
+                        _logger.LogInformation("IOException" + ex.Message, DateTimeOffset.Now);
+                        await _protocoloServices.AtualizarDocumentoEmBranco(item);
+                        continue;
+                    }
 
-            return new HtmlMetaInfo();
+                    await _protocoloServices.ConfirmarImpressao(item, QuantidadeDePaginas);
+                }
+                _logger.LogInformation("Mil documentos com sucesso", DateTimeOffset.Now);
+                await Task.Delay(60000, stoppingToken);
+            }
         }
     }
 }
